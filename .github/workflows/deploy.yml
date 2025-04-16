@@ -2,19 +2,21 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Publish .NET Project
         run: |
@@ -29,9 +31,19 @@ jobs:
       - name: Add .nojekyll file
         run: touch release/wwwroot/.nojekyll
 
-      - name: Commit wwwroot to GitHub Pages
+      # Elimina la rama gh-pages si existe y crea una nueva
+      - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages
           folder: release/wwwroot
+          branch: gh-pages
+          clean: true         # Elimina archivos existentes en la rama
+          clean-exclude: |    # Archivos que queremos mantener (opcional)
+            .gitignore
+            README.md
+          force: true         # Fuerza la actualización incluso si hay conflictos
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Deploy Blazor Web App to GitHub Pages"
+          git-config-name: "GitHub Actions"
+          git-config-email: "actions@github.com"
+          single-commit: true # Mantiene solo el último commit en la rama gh-pages
