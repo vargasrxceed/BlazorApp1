@@ -42,7 +42,7 @@ jobs:
             .gitignore
             README.md
           force: true         # Fuerza la actualización incluso si hay conflictos
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEPLOY_BLAZOR }}
           commit-message: "Deploy Blazor Web App to GitHub Pages"
           git-config-name: "GitHub Actions"
           git-config-email: "actions@github.com"
