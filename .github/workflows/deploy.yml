@@ -1,58 +1,49 @@
-name: Build and Deploy
+name: Deploy to GitHub Pages
 
 on:
-#  push:
-#    branches: [ "master" ]
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
-env:
-  NETCORE_VERSION: "9.0.x"
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
-  DOTNET_CLI_TELEMETRY_OPTOUT: true
-  SRC: "/home/runner/work/klean/klean/src/src"
-
 jobs:
-  build-and-deploy:
-    concurrency: ci-${{ github.ref }}
+  deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Setup Tailwind CSS 🎨
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish .NET Project
         run: |
-          wget https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -O /usr/local/bin/tailwindcss
-          chmod +x /usr/local/bin/tailwindcss
-          cd ${{ env.SRC }}/Presentation
-          tailwindcss --input ./wwwroot/app.css --output ./wwwroot/app.min.css --minify
+          dotnet publish BlazorApp1/BlazorApp1.csproj -c Release -o release --nologo
 
-      - name: Change base href in App.razor to match gh repo name 🏷️
+      # Cambia la base-tag en index.html desde '/' a '/BlazorApp1/' para que funcione con GitHub Pages
+      - name: Change base-tag in index.html
         run: |
-          cd ${{ env.SRC }}/Presentation
-          REPO_NAME=$(echo "${{ github.repository }}" | awk -F '/' '{print $NF}')
-          sed -i 's/<base href="\/"[[:blank:]]*\/>/<base href="\/'$REPO_NAME'\/" \/>/g' ./wwwroot/index.html
+          find release/wwwroot -name "*.html" -exec sed -i 's/<base href="\/" \/>/<base href="\/BlazorApp1\/" \/>/g' {} \;
 
-      - name: Test 🧪
-        run: dotnet test --verbosity normal
+      # Añade archivo .nojekyll para evitar procesamiento con Jekyll
+      - name: Add .nojekyll file
+        run: touch release/wwwroot/.nojekyll
 
-      - name: Publish 📦
-        run: dotnet publish ${{ env.SRC }}/Presentation --configuration Release --output dist
-
-      # https://github.blog/2009-12-29-bypassing-jekyll-on-github-pages/
-      # Folders starting with _ are handled as jekyll. This file will prevent that.
-      # Because blazor framework uses _framework folder, we need to prevent jekyll from processing it.
-      - name: Create .nojekyll file 📁
-        run: touch dist/wwwroot/.nojekyll
-
-      - name: Copy index.html to 404.html 📄
-        run: |
-          cp dist/wwwroot/index.html dist/wwwroot/404.html  
-
-      - name: Deploy to gh-pages 🚀
+      # Elimina la rama gh-pages si existe y crea una nueva
+      - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
+          folder: release/wwwroot
           branch: gh-pages
-          folder: dist/wwwroot
+          clean: true         # Elimina archivos existentes en la rama
+          clean-exclude: |    # Archivos que queremos mantener (opcional)
+            .gitignore
+            README.md
+          force: true         # Fuerza la actualización incluso si hay conflictos
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Deploy Blazor Web App to GitHub Pages"
+          git-config-name: "GitHub Actions"
+          git-config-email: "actions@github.com"
+          single-commit: true # Mantiene solo el último commit en la rama gh-pages
