@@ -1,0 +1,37 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish .NET Project
+        run: |
+          dotnet publish BlazorApp1/BlazorApp1.csproj -c Release -o release --nologo
+
+      # Cambia la base-tag en index.html desde '/' a '/BlazorApp1/' para que funcione con GitHub Pages
+      - name: Change base-tag in index.html
+        run: |
+          find release/wwwroot -name "*.html" -exec sed -i 's/<base href="\/" \/>/<base href="\/BlazorApp1\/" \/>/g' {} \;
+
+      # Añade archivo .nojekyll para evitar procesamiento con Jekyll
+      - name: Add .nojekyll file
+        run: touch release/wwwroot/.nojekyll
+
+      - name: Commit wwwroot to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: release/wwwroot
